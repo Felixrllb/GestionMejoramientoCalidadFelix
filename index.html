@@ -1,0 +1,801 @@
+
+
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBER-NEXUS // TUF-A15 Telemetry & Lab</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            900: '#050b14',
+                            800: '#0a192f',
+                            700: '#112240',
+                            600: '#1d3557',
+                            accent: '#00ffcc',
+                            purple: '#9d4edd',
+                            pink: '#ff007f',
+                            warn: '#ffb703',
+                            danger: '#ef476f'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['Share Tech Mono', 'monospace'],
+                        sans: ['Rajdhani', 'sans-serif']
+                    },
+                    boxShadow: {
+                        'neon': '0 0 15px rgba(0, 255, 204, 0.25)',
+                        'neon-pink': '0 0 15px rgba(255, 0, 127, 0.25)',
+                        'neon-purple': '0 0 15px rgba(157, 78, 221, 0.25)',
+                        'glow': 'inset 0 0 15px rgba(0, 255, 204, 0.1)'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #050b14;
+            color: #e2e8f0;
+            font-family: 'Rajdhani', sans-serif;
+        }
+        .scanlines {
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            ), linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.03),
+                rgba(0, 255, 0, 0.01),
+                rgba(0, 0, 255, 0.03)
+            );
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a192f;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00ffcc44;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00ffcc;
+        }
+        .cyber-border {
+            position: relative;
+        }
+        .cyber-border::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            border-bottom: 2px solid #00ffcc;
+            border-right: 2px solid #00ffcc;
+        }
+        .cyber-border::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10px;
+            height: 10px;
+            border-top: 2px solid #00ffcc;
+            border-left: 2px solid #00ffcc;
+        }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden">
+
+    <!-- Scanline overlay effect -->
+    <div class="scanlines fixed inset-0 z-50"></div>
+
+    <!-- Top Navigation / Header -->
+    <header class="border-b border-cyber-700 bg-cyber-900/80 backdrop-blur sticky top-0 z-40 px-4 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="relative flex items-center justify-center w-10 h-10 rounded bg-cyber-700 border border-cyber-accent shadow-neon">
+                <i class="fa-solid fa-microchip text-cyber-accent text-xl animate-pulse"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-wider text-white flex items-center gap-2">
+                    ASUS TUF A15 <span class="text-xs px-2 py-0.5 rounded bg-cyber-purple/30 border border-cyber-purple text-cyber-purple">LAB-NODE 01</span>
+                </h1>
+                <p class="text-xs text-slate-400 font-mono">SEC-OPS // KERNEL 6.8.4-TUF-ARCH</p>
+            </div>
+        </div>
+
+        <!-- Global Status & Quick Controls -->
+        <div class="flex items-center gap-3 flex-wrap">
+            <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded bg-cyber-800 border border-cyber-700 text-xs font-mono">
+                <span class="w-2 h-2 rounded-full bg-cyber-accent animate-ping"></span>
+                <span>SYSTEM STABLE</span>
+            </div>
+            
+            <button onclick="triggerSecurityAlert()" class="px-3 py-1.5 rounded bg-cyber-danger/20 hover:bg-cyber-danger/30 border border-cyber-danger text-cyber-danger text-xs font-semibold tracking-wider transition duration-200 flex items-center gap-2 shadow-neon-pink">
+                <i class="fa-solid fa-triangle-exclamation"></i> SIMULATE BREACH
+            </button>
+
+            <button onclick="toggleSimulationState()" id="simToggleBtn" class="px-3 py-1.5 rounded bg-cyber-accent/20 hover:bg-cyber-accent/30 border border-cyber-accent text-cyber-accent text-xs font-semibold tracking-wider transition duration-200 flex items-center gap-2 shadow-neon">
+                <i class="fa-solid fa-pause" id="simToggleIcon"></i> <span id="simToggleText">PAUSE FEED</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="p-4 lg:p-6 max-w-[1600px] mx-auto space-y-6">
+
+        <!-- Top Row: Hardware Stats Cards (TUF A15 Specs + Live Load) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- CPU Card -->
+            <div class="bg-cyber-800/80 border border-cyber-700 rounded-lg p-4 cyber-border shadow-glow relative overflow-hidden group">
+                <div class="absolute -right-6 -bottom-6 text-cyber-700/30 text-7xl font-mono pointer-events-none group-hover:scale-110 transition duration-500">
+                    <i class="fa-solid fa-cpu"></i>
+                </div>
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-mono text-slate-400 uppercase tracking-widest">AMD Ryzen 7 5800H</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-cyber-accent/10 border border-cyber-accent/30 text-cyber-accent font-mono" id="cpuTemp">68°C</span>
+                </div>
+                <div class="flex items-baseline justify-between mb-2">
+                    <h3 class="text-2xl font-bold tracking-tight text-white font-mono" id="cpuUsageVal">34.2%</h3>
+                    <span class="text-xs text-cyber-accent font-mono">8C / 16T @ 4.4GHz</span>
+                </div>
+                <!-- Progress bar -->
+                <div class="w-full bg-cyber-900 rounded-full h-2 overflow-hidden border border-cyber-700">
+                    <div id="cpuBar" class="bg-gradient-to-r from-cyber-accent to-cyber-purple h-full transition-all duration-500" style="width: 34%;"></div>
+                </div>
+            </div>
+
+            <!-- RAM Card -->
+            <div class="bg-cyber-800/80 border border-cyber-700 rounded-lg p-4 cyber-border shadow-glow relative overflow-hidden group">
+                <div class="absolute -right-6 -bottom-6 text-cyber-700/30 text-7xl font-mono pointer-events-none group-hover:scale-110 transition duration-500">
+                    <i class="fa-solid fa-memory"></i>
+                </div>
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-mono text-slate-400 uppercase tracking-widest">DDR4 3200MHz Dual</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-cyber-purple/10 border border-cyber-purple/30 text-cyber-purple font-mono">10.4 / 16 GB</span>
+                </div>
+                <div class="flex items-baseline justify-between mb-2">
+                    <h3 class="text-2xl font-bold tracking-tight text-white font-mono" id="ramUsageVal">65.0%</h3>
+                    <span class="text-xs text-cyber-purple font-mono">Active Allocation</span>
+                </div>
+                <!-- Progress bar -->
+                <div class="w-full bg-cyber-900 rounded-full h-2 overflow-hidden border border-cyber-700">
+                    <div id="ramBar" class="bg-gradient-to-r from-cyber-purple to-cyber-pink h-full transition-all duration-500" style="width: 65%;"></div>
+                </div>
+            </div>
+
+            <!-- GPU Card (RTX 3060 Laptop) -->
+            <div class="bg-cyber-800/80 border border-cyber-700 rounded-lg p-4 cyber-border shadow-glow relative overflow-hidden group">
+                <div class="absolute -right-6 -bottom-6 text-cyber-700/30 text-7xl font-mono pointer-events-none group-hover:scale-110 transition duration-500">
+                    <i class="fa-solid fa-vr-cardboard"></i>
+                </div>
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-mono text-slate-400 uppercase tracking-widest">NVIDIA RTX 3060</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono" id="gpuTemp">59°C</span>
+                </div>
+                <div class="flex items-baseline justify-between mb-2">
+                    <h3 class="text-2xl font-bold tracking-tight text-white font-mono" id="gpuUsageVal">18.5%</h3>
+                    <span class="text-xs text-amber-400 font-mono">VRAM: 2.1 / 6 GB</span>
+                </div>
+                <!-- Progress bar -->
+                <div class="w-full bg-cyber-900 rounded-full h-2 overflow-hidden border border-cyber-700">
+                    <div id="gpuBar" class="bg-gradient-to-r from-amber-500 to-cyber-warn h-full transition-all duration-500" style="width: 18.5%;"></div>
+                </div>
+            </div>
+
+            <!-- Network Card -->
+            <div class="bg-cyber-800/80 border border-cyber-700 rounded-lg p-4 cyber-border shadow-glow relative overflow-hidden group">
+                <div class="absolute -right-6 -bottom-6 text-cyber-700/30 text-7xl font-mono pointer-events-none group-hover:scale-110 transition duration-500">
+                    <i class="fa-solid fa-network-wired"></i>
+                </div>
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-mono text-slate-400 uppercase tracking-widest">WIFI 6 (Realtek)</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono">1.2 Gbps</span>
+                </div>
+                <div class="flex items-baseline justify-between mb-2">
+                    <h3 class="text-lg font-bold tracking-tight text-white font-mono" id="netSpeedVal">↓ 4.2 MB/s ↑ 840 KB/s</h3>
+                    <span class="text-xs text-emerald-400 font-mono">Secure Tunnel</span>
+                </div>
+                <!-- Progress bar -->
+                <div class="w-full bg-cyber-900 rounded-full h-2 overflow-hidden border border-cyber-700">
+                    <div id="netBar" class="bg-gradient-to-r from-emerald-500 to-cyber-accent h-full transition-all duration-500" style="width: 42%;"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Middle Section: Charts and Interactive Visuals -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Telemetry Chart (2 cols) -->
+            <div class="lg:col-span-2 bg-cyber-800/80 border border-cyber-700 rounded-lg p-5 cyber-border flex flex-col justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-white tracking-wider uppercase flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-cyber-accent"></i> Real-Time Telemetry Stream
+                        </h2>
+                        <p class="text-xs text-slate-400">CPU Load vs Memory Allocation over time window</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="setChartInterval('fast')" id="btnFast" class="px-2.5 py-1 text-xs font-mono rounded bg-cyber-700 text-cyber-accent border border-cyber-accent">1s</button>
+                        <button onclick="setChartInterval('normal')" id="btnNormal" class="px-2.5 py-1 text-xs font-mono rounded bg-cyber-900 text-slate-400 border border-cyber-700">3s</button>
+                    </div>
+                </div>
+                <div class="relative w-full h-64 sm:h-72">
+                    <canvas id="telemetryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Active Docker Containers Panel -->
+            <div class="bg-cyber-800/80 border border-cyber-700 rounded-lg p-5 cyber-border flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-base font-bold text-white tracking-wider uppercase flex items-center gap-2">
+                        <i class="fa-brands fa-docker text-cyber-accent"></i> Active Containers
+                    </h2>
+                    <span class="text-xs font-mono px-2 py-0.5 rounded bg-cyber-accent/10 border border-cyber-accent/30 text-cyber-accent" id="containerCount">4 Running</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-4">Isolated cybersecurity testing instances</p>
+                
+                <div class="space-y-3 overflow-y-auto max-h-72 pr-1" id="containersList">
+                    <!-- Container 1 -->
+                    <div class="p-3 rounded bg-cyber-900/90 border border-cyber-700 hover:border-cyber-accent/50 transition duration-200">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-mono font-bold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                sec-siem-elastic:latest
+                            </span>
+                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">HEALTHY</span>
+                        </div>
+                        <div class="flex justify-between text-[11px] font-mono text-slate-400 mt-2">
+                            <span>Port: 9200</span>
+                            <span>CPU: 4.1% | MEM: 1.2GB</span>
+                        </div>
+                    </div>
+
+                    <!-- Container 2 -->
+                    <div class="p-3 rounded bg-cyber-900/90 border border-cyber-700 hover:border-cyber-accent/50 transition duration-200">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-mono font-bold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                kali-sandbox-node
+                            </span>
+                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">HEALTHY</span>
+                        </div>
+                        <div class="flex justify-between text-[11px] font-mono text-slate-400 mt-2">
+                            <span>Port: 2222</span>
+                            <span>CPU: 1.8% | MEM: 840MB</span>
+                        </div>
+                    </div>
+
+                    <!-- Container 3 -->
+                    <div class="p-3 rounded bg-cyber-900/90 border border-cyber-700 hover:border-cyber-accent/50 transition duration-200">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-mono font-bold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                owasp-zap-proxy
+                            </span>
+                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">HEALTHY</span>
+                        </div>
+                        <div class="flex justify-between text-[11px] font-mono text-slate-400 mt-2">
+                            <span>Port: 8080</span>
+                            <span>CPU: 6.5% | MEM: 2.1GB</span>
+                        </div>
+                    </div>
+
+                    <!-- Container 4 -->
+                    <div class="p-3 rounded bg-cyber-900/90 border border-cyber-700 hover:border-cyber-accent/50 transition duration-200">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-mono font-bold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-cyber-warn animate-pulse"></span>
+                                metasploit-rpc-d
+                            </span>
+                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyber-warn/10 text-cyber-warn border border-cyber-warn/30">BUSY</span>
+                        </div>
+                        <div class="flex justify-between text-[11px] font-mono text-slate-400 mt-2">
+                            <span>Port: 55553</span>
+                            <span>CPU: 12.4% | MEM: 1.6GB</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Container Modal / Button -->
+                <div class="mt-4 pt-3 border-t border-cyber-700">
+                    <button onclick="deployNewContainer()" class="w-full py-2 bg-cyber-700 hover:bg-cyber-600 border border-cyber-accent/40 hover:border-cyber-accent text-cyber-accent text-xs font-mono rounded transition duration-200 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus"></i> DEPLOY NEW TEST CONTAINER
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Row: Live Activity Terminal Feed & Security Log -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Terminal Feed (2 cols) -->
+            <div class="lg:col-span-2 bg-cyber-900 border border-cyber-700 rounded-lg p-4 font-mono shadow-glow flex flex-col h-80">
+                <div class="flex items-center justify-between pb-3 border-b border-cyber-700 mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-cyber-danger inline-block"></span>
+                        <span class="w-3 h-3 rounded-full bg-cyber-warn inline-block"></span>
+                        <span class="w-3 h-3 rounded-full bg-cyber-accent inline-block"></span>
+                        <span class="text-xs text-slate-400 ml-2">root@asus-tuf-a15:/var/log/cyber-nexus# tail -f</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="clearTerminal()" class="text-xs text-slate-400 hover:text-cyber-accent transition"><i class="fa-solid fa-trash-can"></i> CLEAR</button>
+                    </div>
+                </div>
+                
+                <!-- Log output container -->
+                <div id="terminalFeed" class="flex-1 overflow-y-auto space-y-1.5 text-xs text-slate-300 pr-2">
+                    <div class="text-slate-500">[00:00:01] [INIT] ASUS TUF Gaming A15 thermal profile: Balanced mode enabled.</div>
+                    <div class="text-slate-500">[00:00:02] [KERNEL] Loaded Netfilter conntrack table modules.</div>
+                    <div class="text-emerald-400">[00:00:04] [DOCKER] 4 containers successfully attached to bridge network br-sec.</div>
+                    <div class="text-cyber-accent">[00:00:06] [IDS] Snort rule engine v3.1 active. Monitoring interfaces wlan0/docker0.</div>
+                </div>
+
+                <!-- Terminal input simulation -->
+                <div class="pt-3 border-t border-cyber-700 mt-2 flex items-center gap-2">
+                    <span class="text-cyber-accent text-xs">root@tuf:~#</span>
+                    <input type="text" id="terminalInput" placeholder="Type command (e.g. scan, stats, clear, ip)" onkeydown="handleTerminalCommand(event)" class="bg-transparent border-none outline-none text-xs text-white font-mono flex-1">
+                    <button onclick="executeCommandFromInput()" class="px-3 py-1 bg-cyber-700 hover:bg-cyber-600 text-cyber-accent text-xs rounded border border-cyber-accent/30">EXEC</button>
+                </div>
+            </div>
+
+            <!-- Threat Level & Incident Radar -->
+            <div class="bg-cyber-800/80 border border-cyber-700 rounded-lg p-5 cyber-border flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-base font-bold text-white tracking-wider uppercase flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved text-cyber-accent"></i> Threat Matrix
+                        </h2>
+                        <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono" id="threatStatus">SECURE</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">Autonomous firewall defense and intrusion counter-measures</p>
+
+                    <!-- Radar representation / Metrics -->
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-xs font-mono mb-1">
+                                <span class="text-slate-300">WAF Blocked Requests</span>
+                                <span class="text-cyber-accent" id="wafBlockedCount">1,429</span>
+                            </div>
+                            <div class="w-full bg-cyber-900 h-1.5 rounded-full overflow-hidden border border-cyber-700">
+                                <div class="bg-cyber-accent h-full w-[45%]"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs font-mono mb-1">
+                                <span class="text-slate-300">SSH Brute-Force Attempts</span>
+                                <span class="text-cyber-pink" id="sshAttemptsCount">84</span>
+                            </div>
+                            <div class="w-full bg-cyber-900 h-1.5 rounded-full overflow-hidden border border-cyber-700">
+                                <div class="bg-cyber-pink h-full w-[20%]"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs font-mono mb-1">
+                                <span class="text-slate-300">Port Scan Signatures</span>
+                                <span class="text-cyber-warn" id="portScanCount">12</span>
+                            </div>
+                            <div class="w-full bg-cyber-900 h-1.5 rounded-full overflow-hidden border border-cyber-700">
+                                <div class="bg-cyber-warn h-full w-[15%]"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <div class="mt-6 pt-4 border-t border-cyber-700">
+                    <button onclick="runVulnerabilityScan()" class="w-full py-2.5 bg-gradient-to-r from-cyber-purple to-cyber-pink text-white text-xs font-bold font-mono rounded tracking-wider shadow-neon-purple hover:opacity-90 transition duration-200 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-radar"></i> EXECUTE FULL PORT & VULN SCAN
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Custom Notification Modal / Toast -->
+    <div id="toastNotification" class="fixed bottom-6 right-6 z-50 transform translate-y-32 opacity-0 transition-all duration-300 max-w-sm bg-cyber-800 border border-cyber-accent p-4 rounded-lg shadow-neon flex items-start gap-3">
+        <div id="toastIcon" class="text-cyber-accent text-xl mt-0.5">
+            <i class="fa-solid fa-circle-info"></i>
+        </div>
+        <div class="flex-1">
+            <h4 class="text-xs font-bold uppercase text-white tracking-wider" id="toastTitle">System Notification</h4>
+            <p class="text-xs text-slate-300 mt-1" id="toastMessage">Telemetry data updated successfully.</p>
+        </div>
+        <button onclick="hideToast()" class="text-slate-400 hover:text-white text-xs"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Global Simulation State
+        let isSimulating = true;
+        let updateIntervalMs = 1500;
+        let chartIntervalMode = 'fast';
+
+        // Stats tracking
+        let cpuUsage = 34.2;
+        let ramUsage = 65.0;
+        let gpuUsage = 18.5;
+        let netDown = 4.2;
+        let netUp = 0.84;
+        let blockedCount = 1429;
+        let sshCount = 84;
+
+        // Terminal Log Messages pool
+        const logPool = [
+            { type: 'info', msg: 'Incoming handshake verified from trusted subnet 192.168.1.0/24' },
+            { type: 'warn', msg: 'SQL injection payload detected and sanitized on endpoint /api/v1/auth' },
+            { type: 'accent', msg: 'Docker container [sec-siem-elastic] indexed 4,820 log events successfully' },
+            { type: 'danger', msg: 'Multiple failed SSH login attempts recorded from IP 45.154.25.11' },
+            { type: 'info', msg: 'TUF A15 fan profile adjusted: Performance curve normal (3200 RPM)' },
+            { type: 'accent', msg: 'SSL Certificate auto-renew check passed for secure cluster node' },
+            { type: 'warn', msg: 'High memory spike detected in container owasp-zap-proxy during scan' }
+        ];
+
+        // Initialize Chart.js Telemetry Chart
+        const ctx = document.getElementById('telemetryChart').getContext('2d');
+        const maxDataPoints = 20;
+        
+        const initialLabels = Array.from({length: maxDataPoints}, (_, i) => `-${(maxDataPoints - i) * 2}s`);
+        const initialCpuData = Array.from({length: maxDataPoints}, () => Math.floor(Math.random() * 20) + 30);
+        const initialRamData = Array.from({length: maxDataPoints}, () => Math.floor(Math.random() * 5) + 63);
+
+        const telemetryChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: initialLabels,
+                datasets: [
+                    {
+                        label: 'CPU Load (%)',
+                        data: initialCpuData,
+                        borderColor: '#00ffcc',
+                        backgroundColor: 'rgba(0, 255, 204, 0.08)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 2
+                    },
+                    {
+                        label: 'RAM Allocation (%)',
+                        data: initialRamData,
+                        borderColor: '#9d4edd',
+                        backgroundColor: 'rgba(157, 78, 221, 0.08)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#94a3b8',
+                            font: { family: 'Share Tech Mono', size: 11 }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(29, 53, 87, 0.4)' },
+                        ticks: { color: '#64748b', font: { family: 'Share Tech Mono', size: 10 } }
+                    },
+                    y: {
+                        min: 0,
+                        max: 100,
+                        grid: { color: 'rgba(29, 53, 87, 0.4)' },
+                        ticks: { color: '#64748b', font: { family: 'Share Tech Mono', size: 10 } }
+                    }
+                },
+                animation: { duration: 400 }
+            }
+        });
+
+        // Main Simulation Loop
+        function runSimulationTick() {
+            if (!isSimulating) return;
+
+            // Fluctuate CPU
+            cpuUsage = Math.min(95, Math.max(15, cpuUsage + (Math.random() * 12 - 6)));
+            // Fluctuate RAM
+            ramUsage = Math.min(90, Math.max(50, ramUsage + (Math.random() * 2 - 1)));
+            // Fluctuate GPU
+            gpuUsage = Math.min(85, Math.max(5, gpuUsage + (Math.random() * 8 - 4)));
+            // Fluctuate Network
+            netDown = Math.max(0.5, netDown + (Math.random() * 2 - 1));
+            netUp = Math.max(0.1, netUp + (Math.random() * 0.5 - 0.25));
+
+            // Update UI elements
+            document.getElementById('cpuUsageVal').innerText = cpuUsage.toFixed(1) + '%';
+            document.getElementById('cpuBar').style.width = cpuUsage + '%';
+            document.getElementById('cpuTemp').innerText = (55 + (cpuUsage * 0.3)).toFixed(0) + '°C';
+
+            document.getElementById('ramUsageVal').innerText = ramUsage.toFixed(1) + '%';
+            document.getElementById('ramBar').style.width = ramUsage + '%';
+
+            document.getElementById('gpuUsageVal').innerText = gpuUsage.toFixed(1) + '%';
+            document.getElementById('gpuBar').style.width = gpuUsage + '%';
+            document.getElementById('gpuTemp').innerText = (50 + (gpuUsage * 0.2)).toFixed(0) + '°C';
+
+            document.getElementById('netSpeedVal').innerHTML = `↓ ${netDown.toFixed(1)} MB/s ↑ ${netUp.toFixed(1)} MB/s`;
+            document.getElementById('netBar').style.width = Math.min(100, netDown * 10) + '%';
+
+            // Update Chart
+            const now = new Date();
+            const timeLabel = now.toTimeString().split(' ')[0];
+            
+            telemetryChart.data.labels.shift();
+            telemetryChart.data.labels.push(timeLabel);
+
+            telemetryChart.data.datasets[0].data.shift();
+            telemetryChart.data.datasets[0].data.push(cpuUsage);
+
+            telemetryChart.data.datasets[1].data.shift();
+            telemetryChart.data.datasets[1].data.push(ramUsage);
+
+            telemetryChart.update('none');
+
+            // Randomly append a terminal log
+            if (Math.random() > 0.6) {
+                appendRandomLog();
+            }
+        }
+
+        // Interval controller
+        let simInterval = setInterval(runSimulationTick, updateIntervalMs);
+
+        function toggleSimulationState() {
+            isSimulating = !isSimulating;
+            const icon = document.getElementById('simToggleIcon');
+            const text = document.getElementById('simToggleText');
+            
+            if (isSimulating) {
+                icon.className = "fa-solid fa-pause";
+                text.innerText = "PAUSE FEED";
+                showToast("Simulation Resumed", "Live telemetry stream is active.", "info");
+            } else {
+                icon.className = "fa-solid fa-play";
+                text.innerText = "RESUME FEED";
+                showToast("Simulation Paused", "Telemetry streams have been suspended.", "warn");
+            }
+        }
+
+        function setChartInterval(mode) {
+            chartIntervalMode = mode;
+            clearInterval(simInterval);
+            
+            const btnFast = document.getElementById('btnFast');
+            const btnNormal = document.getElementById('btnNormal');
+
+            if (mode === 'fast') {
+                updateIntervalMs = 1500;
+                btnFast.className = "px-2.5 py-1 text-xs font-mono rounded bg-cyber-700 text-cyber-accent border border-cyber-accent";
+                btnNormal.className = "px-2.5 py-1 text-xs font-mono rounded bg-cyber-900 text-slate-400 border border-cyber-700";
+            } else {
+                updateIntervalMs = 3500;
+                btnNormal.className = "px-2.5 py-1 text-xs font-mono rounded bg-cyber-700 text-cyber-accent border border-cyber-accent";
+                btnFast.className = "px-2.5 py-1 text-xs font-mono rounded bg-cyber-900 text-slate-400 border border-cyber-700";
+            }
+            simInterval = setInterval(runSimulationTick, updateIntervalMs);
+        }
+
+        // Terminal Logging Functions
+        function appendRandomLog() {
+            const randomIndex = Math.floor(Math.random() * logPool.length);
+            const logItem = logPool[randomIndex];
+            const now = new Date().toTimeString().split(' ')[0];
+            
+            const feed = document.getElementById('terminalFeed');
+            const div = document.createElement('div');
+
+            let colorClass = 'text-slate-300';
+            if (logItem.type === 'warn') colorClass = 'text-cyber-warn';
+            if (logItem.type === 'danger') colorClass = 'text-cyber-danger';
+            if (logItem.type === 'accent') colorClass = 'text-cyber-accent';
+            if (logItem.type === 'info') colorClass = 'text-slate-400';
+
+            div.className = colorClass;
+            div.innerHTML = `[${now}] [${logItem.type.toUpperCase()}] ${logItem.msg}`;
+            
+            feed.appendChild(div);
+            feed.scrollTop = feed.scrollHeight;
+        }
+
+        function clearTerminal() {
+            const feed = document.getElementById('terminalFeed');
+            feed.innerHTML = '<div class="text-slate-500">[SYSTEM] Terminal logs cleared by operator.</div>';
+            showToast("Terminal Cleared", "Buffer logs wiped successfully.", "info");
+        }
+
+        function handleTerminalCommand(event) {
+            if (event.key === 'Enter') {
+                executeCommandFromInput();
+            }
+        }
+
+        function executeCommandFromInput() {
+            const input = document.getElementById('terminalInput');
+            const val = input.value.trim().toLowerCase();
+            if (!val) return;
+
+            const feed = document.getElementById('terminalFeed');
+            const now = new Date().toTimeString().split(' ')[0];
+
+            // Echo command
+            const cmdDiv = document.createElement('div');
+            cmdDiv.className = "text-white font-bold";
+            cmdDiv.innerText = `root@tuf:~# ${val}`;
+            feed.appendChild(cmdDiv);
+
+            // Process command
+            const resDiv = document.createElement('div');
+            resDiv.className = "text-slate-300";
+
+            if (val === 'clear') {
+                feed.innerHTML = '';
+                input.value = '';
+                return;
+            } else if (val === 'stats') {
+                resDiv.innerHTML = `CPU: ${cpuUsage.toFixed(1)}% | RAM: ${ramUsage.toFixed(1)}% | GPU: ${gpuUsage.toFixed(1)}% | Temp: 68°C`;
+            } else if (val === 'scan') {
+                resDiv.innerHTML = `[+] Scanning localhost interfaces... 0 vulnerabilities discovered on 12 open ports.`;
+            } else if (val === 'ip') {
+                resDiv.innerHTML = `inet 192.168.1.145 netmask 255.255.255.0 brd 192.168.1.255 (TUF-WIFI6)`;
+            } else if (val === 'help') {
+                resDiv.innerHTML = `Available commands: stats, scan, ip, clear, help`;
+            } else {
+                resDiv.innerHTML = `bash: ${val}: command not found. Type 'help' for available commands.`;
+            }
+
+            feed.appendChild(resDiv);
+            input.value = '';
+            feed.scrollTop = feed.scrollHeight;
+        }
+
+        // Interactive Breach Simulation
+        function triggerSecurityAlert() {
+            blockedCount += Math.floor(Math.random() * 25) + 10;
+            sshCount += Math.floor(Math.random() * 5) + 1;
+
+            document.getElementById('wafBlockedCount').innerText = blockedCount.toLocaleString();
+            document.getElementById('sshAttemptsCount').innerText = sshCount;
+            
+            const threatStatus = document.getElementById('threatStatus');
+            threatStatus.innerText = "DEFCON 2";
+            threatStatus.className = "text-xs px-2 py-0.5 rounded bg-cyber-danger/10 border border-cyber-danger/30 text-cyber-danger font-mono animate-pulse";
+
+            const feed = document.getElementById('terminalFeed');
+            const now = new Date().toTimeString().split(' ')[0];
+            const div = document.createElement('div');
+            div.className = "text-cyber-danger font-bold";
+            div.innerHTML = `[${now}] [SECURITY ALERT] Simulated DDoS / brute-force vector mitigated by WAF rule #8092.`;
+            feed.appendChild(div);
+            feed.scrollTop = feed.scrollHeight;
+
+            showToast("SECURITY BREACH SIMULATED", "Automated firewall defense blocked incoming malicious traffic.", "danger");
+
+            setTimeout(() => {
+                threatStatus.innerText = "SECURE";
+                threatStatus.className = "text-xs px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono";
+            }, 8000);
+        }
+
+        // Vulnerability Scan Trigger
+        function runVulnerabilityScan() {
+            showToast("Vulnerability Scan Started", "Analyzing docker containers and local ports...", "info");
+            
+            const feed = document.getElementById('terminalFeed');
+            const now = new Date().toTimeString().split(' ')[0];
+            const div = document.createElement('div');
+            div.className = "text-cyber-purple";
+            div.innerHTML = `[${now}] [SCANNER] Nmap aggressive OS detection initiated across docker bridge network.`;
+            feed.appendChild(div);
+            feed.scrollTop = feed.scrollHeight;
+
+            setTimeout(() => {
+                const nowLater = new Date().toTimeString().split(' ')[0];
+                const divDone = document.createElement('div');
+                divDone.className = "text-emerald-400";
+                divDone.innerHTML = `[${nowLater}] [SCANNER] Scan complete. All containers verified secure. Zero critical CVEs found.`;
+                feed.appendChild(divDone);
+                feed.scrollTop = feed.scrollHeight;
+                showToast("Scan Complete", "Lab environment integrity verified.", "info");
+            }, 3000);
+        }
+
+        // Container Deployment Simulation
+        function deployNewContainer() {
+            const list = document.getElementById('containersList');
+            const containerNames = ['nginx-honeypot-v2', 'redis-secure-cache', 'suricata-ids-node', 'postgres-audit-db'];
+            const randomName = containerNames[Math.floor(Math.random() * containerNames.length)] + '-' + Math.floor(Math.random() * 100);
+            
+            const item = document.createElement('div');
+            item.className = "p-3 rounded bg-cyber-900/90 border border-cyber-accent/50 transition duration-200 animate-pulse";
+            item.innerHTML = `
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-mono font-bold text-white flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyber-accent"></span>
+                        ${randomName}
+                    </span>
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyber-accent/10 text-cyber-accent border border-cyber-accent/30">BUILDING</span>
+                </div>
+                <div class="flex justify-between text-[11px] font-mono text-slate-400 mt-2">
+                    <span>Port: 300${Math.floor(Math.random() * 9)}</span>
+                    <span>CPU: 0.2% | MEM: 250MB</span>
+                </div>
+            `;
+            list.prepend(item);
+            showToast("Container Deployment", `Initiated build for ${randomName}`, "info");
+
+            setTimeout(() => {
+                item.classList.remove('animate-pulse');
+                const badge = item.querySelector('span:last-child');
+                badge.className = "text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+                badge.innerText = "HEALTHY";
+                const dot = item.querySelector('.bg-cyber-accent');
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+            }, 3000);
+        }
+
+        // Toast Notification System
+        function showToast(title, message, type = 'info') {
+            const toast = document.getElementById('toastNotification');
+            const titleEl = document.getElementById('toastTitle');
+            const msgEl = document.getElementById('toastMessage');
+            const iconEl = document.getElementById('toastIcon');
+
+            titleEl.innerText = title;
+            msgEl.innerText = message;
+
+            if (type === 'danger') {
+                toast.className = "fixed bottom-6 right-6 z-50 transform translate-y-0 opacity-100 transition-all duration-300 max-w-sm bg-cyber-800 border border-cyber-danger p-4 rounded-lg shadow-neon-pink flex items-start gap-3";
+                iconEl.className = "text-cyber-danger text-xl mt-0.5";
+                iconEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            } else if (type === 'warn') {
+                toast.className = "fixed bottom-6 right-6 z-50 transform translate-y-0 opacity-100 transition-all duration-300 max-w-sm bg-cyber-800 border border-cyber-warn p-4 rounded-lg shadow-glow flex items-start gap-3";
+                iconEl.className = "text-cyber-warn text-xl mt-0.5";
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i>';
+            } else {
+                toast.className = "fixed bottom-6 right-6 z-50 transform translate-y-0 opacity-100 transition-all duration-300 max-w-sm bg-cyber-800 border border-cyber-accent p-4 rounded-lg shadow-neon flex items-start gap-3";
+                iconEl.className = "text-cyber-accent text-xl mt-0.5";
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+            }
+
+            setTimeout(hideToast, 5000);
+        }
+
+        function hideToast() {
+            const toast = document.getElementById('toastNotification');
+            toast.className = "fixed bottom-6 right-6 z-50 transform translate-y-32 opacity-0 transition-all duration-300 max-w-sm bg-cyber-800 border border-cyber-accent p-4 rounded-lg shadow-neon flex items-start gap-3";
+        }
+    </script>
+</body>
+</html>
